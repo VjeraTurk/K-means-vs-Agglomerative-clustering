@@ -1,0 +1,26 @@
+
+K-means
+
+
+Hijerarhijsko klasteriranje: algoritam koji gradi hijerarhiju klastera
+
+distance metric:
+	-Euclidian distance metric
+	-Manhattan distance
+	-maximum distance
+
+linckage criteria.
+	-complete linckage: max distance between points in each cluster
+	-single linckage: min distance between points in each cluster
+	-middle linckage: average distance between points in each cluster
+	-centroid linckage: distancebetween cluster centroids
+	-Ward: clusters that maximize decriese in variance!
+
+HCA vs K-means
+	-HCA ne može podnjeti big data dobro, K-means može, 
+	vremenka složenost k-meansa je linearna a HCA n^2
+	-K-means rezultat ovisan o random izboru na početku, u HCA rezultat 		možemo ponovno dobiti
+	-K-means zadajemo broj klastera, HCA stanemo na broju koji nam 		odgovara
+	
+	 
+
