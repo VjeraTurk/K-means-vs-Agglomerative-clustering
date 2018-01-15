@@ -22,45 +22,37 @@ body Body Identification Number
 home.dest Home/Destination
 '''
 import pandas as pd
-
-fname = '/home/vjera/Desktop/Link to STROJNO/Projekt/titanic/train.csv' #train!!
-fname2 = '/home/vjera/Desktop/Link to STROJNO/Projekt/titanic/test.csv' #test
-
-data = pd.read_csv(fname)
-data_test = pd.read_csv(fname2)
-#print(len(data))
-#print(data.head())
-#data.count()
-
-data_num = data
-data_num.drop(['PassengerId', 'Name'], 1, inplace=True)
-data_num.convert_objects(convert_numeric=True)
-data_num.fillna(0, inplace=True)
-
-data_test_num = data_test
-#data_test_num.drop(['PassengerId', 'Name'], 1, inplace=True)
-#data_test_num.convert_objects(convert_numeric=True)
-#data_test_num.fillna(0, inplace=True)
-
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import style
+from time import time
 ############################################################
 from sklearn.cluster import KMeans
 from sklearn.cluster import AgglomerativeClustering
-from time import time
-############################################################
-import matplotlib.pyplot as plt
-from matplotlib import style
-style.use('ggplot')
-import numpy as np
-from sklearn.cluster import KMeans
 from sklearn import preprocessing
-import pandas as pd
+############################################################
+fname_train = '/home/vjera/Desktop/Link to STROJNO/Projekt/titanic/train.csv' #train
+fname_test = '/home/vjera/Desktop/Link to STROJNO/Projekt/titanic/test.csv' #test
 
-df = pd.read_excel('titanic.xls')
-#print(df.head())
-df.drop(['body','name'], 1, inplace=True)
-df.convert_objects(convert_numeric=True)
-df.fillna(0, inplace=True)
-#print(df.head())
+def agglomerative(linkage,affinity):
+    clustering = AgglomerativeClustering(linkage=linkage, n_clusters=n_clusters,affinity=affinity)
+    t0 = time()
+    clustering.fit(X)
+    print("%s : %.2fs" % (linkage, time() - t0))
+    print(linkage, affinity)
+    correct = 0
+    wrong = 0
+    
+    for ind,(i,j) in enumerate(zip(y,clustering.labels_)):
+        if i == j :
+            correct += 1        
+        else :
+            wrong +=1
+    if (correct/len(y)) > 0.5:
+        print(correct/len(y)*100,"%\n")
+    else :
+        print((1-correct/len(y))*100,"% !!!\n")    
+    return clustering
 
 def handle_non_numerical_data(df):
     columns = df.columns.values
@@ -83,61 +75,103 @@ def handle_non_numerical_data(df):
 
     return df
 
-df = handle_non_numerical_data(df)
-data_num=handle_non_numerical_data(data_num)
+############# to nomeric data
+data = pd.read_csv(fname_train) #train
+data_num = pd.DataFrame.copy(data) #zelimo zadržati originalne podatke
+data_num.drop(['PassengerId', 'Name'], 1, inplace = True) #ime i id ne utječu na rezultat
+data_num.fillna(0, inplace=True)
+data_num = handle_non_numerical_data(data_num)
+
+#data_num.drop(['Cabin'], 1, inplace=True)
 
 
-X = np.array(df.drop(['survived'], 1).astype(float))
-y = np.array(df['survived'])
 
-clf = KMeans(n_clusters=2)
+from sklearn.decomposition import PCA
+variance_pct = .99
+# Create PCA object
+pca = PCA(n_components=variance_pct)
+# Transform the initial features
+X_transformed = pca.fit_transform(data_num,data_num['Survived'])
+# Create a data frame from the PCA'd data
+pcaDataFrame = pd.DataFrame(X_transformed)
+print(pcaDataFrame.shape[1], " components describe ", str(variance_pct)[1:], "% of the variance")
+
+
+############ preprocesing
+X = np.array(data_num.drop(['Survived'], 1).astype(float))
+y = np.array(data_num['Survived'])
+X = preprocessing.scale(X)
+
+
+
+
+
+
+
+
+
+n_clusters=2
+#####################   K-means   #######################
+print("K-means")
+clf = KMeans(n_clusters=n_clusters, n_init = 100)
 clf.fit(X)
-
+clf.cluster_centers_
 correct = 0
+
 for i in range(len(X)):
     predict_me = np.array(X[i].astype(float))
     predict_me = predict_me.reshape(-1, len(predict_me))
     prediction = clf.predict(predict_me)
     if prediction[0] == y[i]:
         correct += 1
-print(correct/len(X))
+if (correct/len(y)) > 0.5:
+    print(correct/len(y)*100,"%\n")
+else :
+    print((1-correct/len(y))*100,"%\n")
 
-
-
-X = np.array(data_num.drop(['Survived'], 1).astype(float))
+##############   AgglomerativeClustering   ##################
 #X.shape (891, 10)
-y = np.array(data_num['Survived'])
-
-agg = AgglomerativeClustering(n_clusters=2).fit(X);
-
 for linkage in ( 'average', 'complete'):
     for affinity in ( 'euclidean', 'l1', 'l2', 'manhattan', 'cosine'):
-        clustering = AgglomerativeClustering(linkage=linkage, n_clusters=2,affinity=affinity)
-        t0 = time()
-        clustering.fit(X)
-        correct = 0
-        wrong = 0
-        for ind,(i,j) in enumerate(zip(y,clustering.labels_)):
-            if i == j :
-                correct += 1        
-            else :
-                wrong +=1
-        print(correct/len(y)*100,"%")
-        print("%s : %.2fs" % (linkage, time() - t0))
+        clusterin=agglomerative(linkage,affinity)
+###########   AgglomerativeClustering: WARD ##################
+#best after scaling
+#0.6742 on test
+clustering= agglomerative('ward','euclidean')
+
+###########   AgglomerativeClustering: complete cosine #######
+#best after scaling+drop Cabin
+#clustering= agglomerative('complete','cosine')
+#worse on test data!
+d = { 'predicted': clusterin.labels_,'Survived': data.Survived}
+result_df= pd.DataFrame(d)
+
+#######################   testing ############################
+data = pd.read_csv(fname_test)
+data_num = pd.DataFrame.copy(data) #zelimo zadržati originalne podatke
+data_num.drop(['PassengerId', 'Name'], 1, inplace = True) #ime i id ne utječu na rezultat
+data_num.fillna(0, inplace=True)
+data_num = handle_non_numerical_data(data_num)
+
+X = preprocessing.scale(X)
+X_test = np.array(data_num).astype(float)
+X_test = preprocessing.scale(X_test)
+
+prediction = clustering.fit_predict(X_test)
+data.PassengerId
+d = { 'PassengerId': data.PassengerId,'Survived': prediction}
+result=pd.DataFrame(d)
+#result.to_csv(path_or_buf='/home/vjera/Desktop/Link to STROJNO/Projekt/titanic/result2.csv', index=False)
 
 
 
-clustering = AgglomerativeClustering(linkage='ward', n_clusters=2,affinity='euclidean')
-t0 = time()
-clustering.fit(X)
-correct = 0
-wrong = 0
-for ind,(i,j) in enumerate(zip(y,clustering.labels_)):
-    if i == j :
-        correct += 1        
-    else :
-        wrong +=1
-print(correct/len(y)*100,"%")
-print("%s : %.2fs" % (linkage, time() - t0))
 
+
+
+#cijela baza titanic.xls
+df = pd.read_excel('titanic.xls')
+df.drop(['body','name'], 1, inplace=True)
+#df.convert_objects(convert_numeric=True)
+df.fillna(0, inplace=True)
+df = handle_non_numerical_data(df)
 
